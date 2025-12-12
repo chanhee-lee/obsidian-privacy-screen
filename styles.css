@@ -7,32 +7,8 @@
 	z-index: 9999;
 	pointer-events: none;
 
-	/* Default values (overridden by JS) */
-	--spotlight-x: 50%;
-	--spotlight-y: 50%;
-	--spotlight-radius: 100px;
 	--blur-intensity: 8px;
-	--feather-edge: 50px;
 
 	backdrop-filter: blur(var(--blur-intensity));
 	-webkit-backdrop-filter: blur(var(--blur-intensity));
-
-	/* Spotlight mask - clear circle with soft edge */
-	mask-image: radial-gradient(
-		circle at var(--spotlight-x) var(--spotlight-y),
-		transparent 0%,
-		transparent var(--spotlight-radius),
-		black calc(var(--spotlight-radius) + var(--feather-edge))
-	);
-	-webkit-mask-image: radial-gradient(
-		circle at var(--spotlight-x) var(--spotlight-y),
-		transparent 0%,
-		transparent var(--spotlight-radius),
-		black calc(var(--spotlight-radius) + var(--feather-edge))
-	);
-
-	/* Smooth transition for spotlight movement */
-	transition:
-		mask-image 0.15s ease-out,
-		-webkit-mask-image 0.15s ease-out;
 }

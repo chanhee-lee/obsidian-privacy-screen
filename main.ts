@@ -1,16 +1,24 @@
 import { Plugin, MarkdownView, PluginSettingTab, App, Setting } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 
+type SpotlightShape = 'circle' | 'square';
+
 interface PrivacyScreenSettings {
-	spotlightRadius: number;
+	spotlightWidth: number;
+	spotlightHeight: number;
 	blurIntensity: number;
 	featherEdge: number;
+	spotlightShape: SpotlightShape;
+	squareRoundness: number;
 }
 
 const DEFAULT_SETTINGS: PrivacyScreenSettings = {
-	spotlightRadius: 100,
+	spotlightWidth: 200,
+	spotlightHeight: 100,
 	blurIntensity: 8,
-	featherEdge: 50
+	featherEdge: 50,
+	spotlightShape: 'circle',
+	squareRoundness: 20
 };
 
 export default class PrivacyScreenPlugin extends Plugin {
@@ -77,20 +85,81 @@ export default class PrivacyScreenPlugin extends Plugin {
 		this.trackCursor();
 	}
 
+	private currentX: number = 0;
+	private currentY: number = 0;
+
 	private applySettings() {
 		if (!this.overlayEl) return;
 
-		const { spotlightRadius, blurIntensity, featherEdge } = this.settings;
-		this.overlayEl.style.setProperty('--spotlight-radius', `${spotlightRadius}px`);
+		const { blurIntensity } = this.settings;
 		this.overlayEl.style.setProperty('--blur-intensity', `${blurIntensity}px`);
-		this.overlayEl.style.setProperty('--feather-edge', `${featherEdge}px`);
+		this.updateMask();
 	}
 
 	private updateSpotlightPosition(x: number, y: number) {
-		if (this.overlayEl) {
-			this.overlayEl.style.setProperty('--spotlight-x', `${x}px`);
-			this.overlayEl.style.setProperty('--spotlight-y', `${y}px`);
+		this.currentX = x;
+		this.currentY = y;
+		this.updateMask();
+	}
+
+	private updateMask() {
+		if (!this.overlayEl) return;
+
+		const { spotlightWidth, spotlightHeight, featherEdge, spotlightShape, squareRoundness } = this.settings;
+		const x = this.currentX;
+		const y = this.currentY;
+		const rx = spotlightWidth / 2;
+		const ry = spotlightHeight / 2;
+
+		let maskImage: string;
+
+		switch (spotlightShape) {
+			case 'square': {
+				const minDimension = Math.min(rx, ry);
+				const roundness = (squareRoundness / 100) * minDimension;
+				maskImage = this.createSquareMask(x, y, spotlightWidth, spotlightHeight, roundness, featherEdge);
+				break;
+			}
+			case 'circle':
+			default: {
+				const outerRx = rx + featherEdge;
+				const outerRy = ry + featherEdge;
+				maskImage = `radial-gradient(ellipse ${rx}px ${ry}px at ${x}px ${y}px, transparent 0%, transparent 100%, black 100%), radial-gradient(ellipse ${outerRx}px ${outerRy}px at ${x}px ${y}px, transparent 0%, black 100%)`;
+				break;
+			}
 		}
+
+		this.overlayEl.style.maskImage = maskImage;
+		this.overlayEl.style.webkitMaskImage = maskImage;
+	}
+
+	private createSquareMask(cx: number, cy: number, width: number, height: number, roundness: number, feather: number): string {
+		const left = cx - width / 2;
+		const top = cy - height / 2;
+		const outerLeft = left - feather;
+		const outerTop = top - feather;
+		const outerWidth = width + feather * 2;
+		const outerHeight = height + feather * 2;
+		const outerRoundness = roundness + feather;
+
+		const svg = `
+			<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+				<defs>
+					<mask id="spotlight">
+						<rect width="100%" height="100%" fill="white"/>
+						<rect x="${outerLeft}" y="${outerTop}" width="${outerWidth}" height="${outerHeight}" rx="${outerRoundness}" fill="url(#fade)"/>
+						<rect x="${left}" y="${top}" width="${width}" height="${height}" rx="${roundness}" fill="black"/>
+					</mask>
+					<radialGradient id="fade">
+						<stop offset="0%" stop-color="black"/>
+						<stop offset="100%" stop-color="white"/>
+					</radialGradient>
+				</defs>
+				<rect width="100%" height="100%" fill="black" mask="url(#spotlight)"/>
+			</svg>
+		`.replace(/\s+/g, ' ').trim();
+
+		return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 	}
 
 	private trackCursor() {
@@ -107,7 +176,8 @@ export default class PrivacyScreenPlugin extends Plugin {
 		const coords = editorView.coordsAtPos(cursorPos);
 		if (!coords) return;
 
-		this.updateSpotlightPosition(coords.left, coords.top);
+		const centerY = (coords.top + coords.bottom) / 2;
+		this.updateSpotlightPosition(coords.left, centerY);
 	}
 
 	private removeOverlay() {
@@ -133,14 +203,26 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 		containerEl.createEl('h2', { text: 'Privacy Screen Settings' });
 
 		new Setting(containerEl)
-			.setName('Spotlight radius')
-			.setDesc('Size of the clear area around the cursor (in pixels)')
+			.setName('Spotlight width')
+			.setDesc('Width of the clear area (in pixels)')
 			.addSlider(slider => slider
-				.setLimits(50, 300, 10)
-				.setValue(this.plugin.settings.spotlightRadius)
+				.setLimits(24, 600, 10)
+				.setValue(this.plugin.settings.spotlightWidth)
 				.setDynamicTooltip()
 				.onChange(async (value) => {
-					this.plugin.settings.spotlightRadius = value;
+					this.plugin.settings.spotlightWidth = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Spotlight height')
+			.setDesc('Height of the clear area (in pixels)')
+			.addSlider(slider => slider
+				.setLimits(24, 600, 10)
+				.setValue(this.plugin.settings.spotlightHeight)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.spotlightHeight = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -167,5 +249,32 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 					this.plugin.settings.featherEdge = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Spotlight shape')
+			.setDesc('Shape of the spotlight area')
+			.addDropdown(dropdown => dropdown
+				.addOption('circle', 'Circle')
+				.addOption('square', 'Square')
+				.setValue(this.plugin.settings.spotlightShape)
+				.onChange(async (value: SpotlightShape) => {
+					this.plugin.settings.spotlightShape = value;
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+
+		if (this.plugin.settings.spotlightShape === 'square') {
+			new Setting(containerEl)
+				.setName('Corner roundness')
+				.setDesc('Roundness of square corners (0 = sharp, 100 = circular)')
+				.addSlider(slider => slider
+					.setLimits(0, 100, 5)
+					.setValue(this.plugin.settings.squareRoundness)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.squareRoundness = value;
+						await this.plugin.saveSettings();
+					}));
+		}
 	}
 }
