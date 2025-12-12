@@ -6,25 +6,30 @@ type SpotlightShape = 'circle' | 'square';
 interface PrivacyScreenSettings {
 	spotlightWidth: number;
 	spotlightHeight: number;
+	horizontalOffset: number;
 	blurIntensity: number;
 	featherEdge: number;
 	spotlightShape: SpotlightShape;
 	squareRoundness: number;
+	previewCursorBlink: boolean;
 }
 
 const DEFAULT_SETTINGS: PrivacyScreenSettings = {
 	spotlightWidth: 200,
 	spotlightHeight: 100,
+	horizontalOffset: 0,
 	blurIntensity: 8,
 	featherEdge: 50,
 	spotlightShape: 'circle',
-	squareRoundness: 20
+	squareRoundness: 20,
+	previewCursorBlink: true
 };
 
 export default class PrivacyScreenPlugin extends Plugin {
 	settings: PrivacyScreenSettings;
 	private overlayEl: HTMLElement | null = null;
 	private isActive: boolean = false;
+	private wasActiveBeforePause: boolean = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -105,8 +110,8 @@ export default class PrivacyScreenPlugin extends Plugin {
 	private updateMask() {
 		if (!this.overlayEl) return;
 
-		const { spotlightWidth, spotlightHeight, featherEdge, spotlightShape, squareRoundness } = this.settings;
-		const x = this.currentX;
+		const { spotlightWidth, spotlightHeight, horizontalOffset, featherEdge, spotlightShape, squareRoundness } = this.settings;
+		const x = this.currentX + horizontalOffset;
 		const y = this.currentY;
 		const rx = spotlightWidth / 2;
 		const ry = spotlightHeight / 2;
@@ -186,10 +191,27 @@ export default class PrivacyScreenPlugin extends Plugin {
 			this.overlayEl = null;
 		}
 	}
+
+	pauseOverlay() {
+		this.wasActiveBeforePause = this.isActive;
+		if (this.isActive) {
+			this.removeOverlay();
+			this.isActive = false;
+		}
+	}
+
+	resumeOverlay() {
+		if (this.wasActiveBeforePause && !this.isActive) {
+			this.createOverlay();
+			this.isActive = true;
+		}
+	}
 }
 
 class PrivacyScreenSettingTab extends PluginSettingTab {
 	plugin: PrivacyScreenPlugin;
+	private previewShapeEl: HTMLElement | null = null;
+	private previewTextEl: HTMLElement | null = null;
 
 	constructor(app: App, plugin: PrivacyScreenPlugin) {
 		super(app, plugin);
@@ -197,10 +219,22 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		this.plugin.pauseOverlay();
+
 		const { containerEl } = this;
 		containerEl.empty();
 
 		containerEl.createEl('h2', { text: 'Privacy Screen Settings' });
+
+		// Shape preview - text stays centered, shape moves around it
+		const previewContainer = containerEl.createDiv({ cls: 'privacy-preview-container' });
+		this.previewShapeEl = previewContainer.createDiv({ cls: 'privacy-preview-shape' });
+		this.previewTextEl = previewContainer.createSpan({ text: 'text', cls: 'privacy-preview-text' });
+		const cursorEl = previewContainer.createDiv({ cls: 'privacy-preview-cursor' });
+		if (!this.plugin.settings.previewCursorBlink) {
+			cursorEl.addClass('no-blink');
+		}
+		this.updatePreview();
 
 		new Setting(containerEl)
 			.setName('Spotlight width')
@@ -211,7 +245,30 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 				.setDynamicTooltip()
 				.onChange(async (value) => {
 					this.plugin.settings.spotlightWidth = value;
+					// Clamp offset if it exceeds new limits
+					const maxOffset = Math.floor(value / 2) - 5;
+					if (this.plugin.settings.horizontalOffset > maxOffset) {
+						this.plugin.settings.horizontalOffset = maxOffset;
+					} else if (this.plugin.settings.horizontalOffset < -maxOffset) {
+						this.plugin.settings.horizontalOffset = -maxOffset;
+					}
 					await this.plugin.saveSettings();
+					this.display();
+				}));
+
+		// Dynamic offset limits based on width
+		const maxOffset = Math.floor(this.plugin.settings.spotlightWidth / 2) - 5;
+		new Setting(containerEl)
+			.setName('Horizontal offset')
+			.setDesc('Shift spotlight left (-) or right (+) relative to cursor')
+			.addSlider(slider => slider
+				.setLimits(-maxOffset, maxOffset, 1)
+				.setValue(this.plugin.settings.horizontalOffset)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.horizontalOffset = value;
+					await this.plugin.saveSettings();
+					this.updatePreview();
 				}));
 
 		new Setting(containerEl)
@@ -224,6 +281,7 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.spotlightHeight = value;
 					await this.plugin.saveSettings();
+					this.updatePreview();
 				}));
 
 		new Setting(containerEl)
@@ -274,7 +332,46 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.squareRoundness = value;
 						await this.plugin.saveSettings();
+						this.updatePreview();
 					}));
 		}
+
+		new Setting(containerEl)
+			.setName('Preview cursor blink')
+			.setDesc('Enable blinking animation for the cursor in preview')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.previewCursorBlink)
+				.onChange(async (value) => {
+					this.plugin.settings.previewCursorBlink = value;
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+	}
+
+	hide(): void {
+		this.plugin.resumeOverlay();
+	}
+
+	private updatePreview(): void {
+		if (!this.previewShapeEl || !this.previewTextEl) return;
+
+		const { spotlightWidth, spotlightHeight, horizontalOffset, spotlightShape, squareRoundness } = this.plugin.settings;
+
+		// Show actual 1:1 size - no scaling
+		// Shape clips if it exceeds preview container bounds
+		this.previewShapeEl.style.width = `${spotlightWidth}px`;
+		this.previewShapeEl.style.height = `${spotlightHeight}px`;
+		this.previewShapeEl.style.transform = `translateX(${horizontalOffset}px)`;
+
+		if (spotlightShape === 'circle') {
+			this.previewShapeEl.style.borderRadius = '50%';
+		} else {
+			const minDim = Math.min(spotlightWidth, spotlightHeight) / 2;
+			const roundness = (squareRoundness / 100) * minDim;
+			this.previewShapeEl.style.borderRadius = `${roundness}px`;
+		}
+
+		// Text stays constant size (actual Obsidian text size)
+		this.previewTextEl.style.transform = '';
 	}
 }

@@ -12,3 +12,61 @@
 	backdrop-filter: blur(var(--blur-intensity));
 	-webkit-backdrop-filter: blur(var(--blur-intensity));
 }
+
+.privacy-preview-container {
+	width: 300px;
+	height: 100px;
+	background: rgba(128, 128, 128, 0.3);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 10px 0 20px 0;
+	border-radius: 4px;
+	position: relative;
+	overflow: hidden;
+}
+
+.privacy-preview-shape {
+	background: var(--background-primary);
+	border: 2px solid var(--text-muted);
+	transition: all 0.15s ease;
+	position: absolute;
+}
+
+.privacy-preview-text {
+	font-size: 12px;
+	color: var(--text-muted);
+	white-space: nowrap;
+	position: absolute;
+	z-index: 1;
+}
+
+.privacy-preview-cursor {
+	position: absolute;
+	width: 2px;
+	height: 1.15em;
+	background: currentColor;
+	opacity: 0.8;
+	z-index: 2;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+	will-change: opacity;
+	animation: cursor-blink 1.5s ease-in-out infinite;
+}
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+	.privacy-preview-cursor {
+		width: 1px;
+	}
+}
+
+@keyframes cursor-blink {
+	0%, 100% { opacity: 0.8; }
+	50% { opacity: 0.4; }
+}
+
+.privacy-preview-cursor.no-blink {
+	animation: none;
+}
