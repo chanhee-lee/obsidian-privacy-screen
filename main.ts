@@ -2,6 +2,7 @@ import { Plugin, MarkdownView, PluginSettingTab, App, Setting } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 
 type SpotlightShape = 'circle' | 'square';
+type TrackingMode = 'cursor' | 'mouse';
 
 interface PrivacyScreenSettings {
 	spotlightWidth: number;
@@ -12,6 +13,8 @@ interface PrivacyScreenSettings {
 	spotlightShape: SpotlightShape;
 	squareRoundness: number;
 	previewCursorBlink: boolean;
+	wasActive: boolean;
+	trackingMode: TrackingMode;
 }
 
 const DEFAULT_SETTINGS: PrivacyScreenSettings = {
@@ -22,7 +25,9 @@ const DEFAULT_SETTINGS: PrivacyScreenSettings = {
 	featherEdge: 50,
 	spotlightShape: 'circle',
 	squareRoundness: 20,
-	previewCursorBlink: true
+	previewCursorBlink: true,
+	wasActive: false,
+	trackingMode: 'cursor'
 };
 
 export default class PrivacyScreenPlugin extends Plugin {
@@ -33,6 +38,12 @@ export default class PrivacyScreenPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// Restore state from last session
+		if (this.settings.wasActive) {
+			this.createOverlay();
+			this.isActive = true;
+		}
 
 		// Add ribbon icon to toggle privacy screen
 		this.addRibbonIcon('eye-off', 'Toggle Privacy Screen', () => {
@@ -48,6 +59,18 @@ export default class PrivacyScreenPlugin extends Plugin {
 			}
 		});
 
+		// Adjustment commands
+		this.addCommand({ id: 'increase-width', name: 'Increase spotlight width', callback: () => this.adjustSetting('spotlightWidth', 10, 24, 600) });
+		this.addCommand({ id: 'decrease-width', name: 'Decrease spotlight width', callback: () => this.adjustSetting('spotlightWidth', -10, 24, 600) });
+		this.addCommand({ id: 'increase-height', name: 'Increase spotlight height', callback: () => this.adjustSetting('spotlightHeight', 10, 24, 600) });
+		this.addCommand({ id: 'decrease-height', name: 'Decrease spotlight height', callback: () => this.adjustSetting('spotlightHeight', -10, 24, 600) });
+		this.addCommand({ id: 'increase-blur', name: 'Increase blur intensity', callback: () => this.adjustSetting('blurIntensity', 1, 2, 20) });
+		this.addCommand({ id: 'decrease-blur', name: 'Decrease blur intensity', callback: () => this.adjustSetting('blurIntensity', -1, 2, 20) });
+		this.addCommand({ id: 'increase-offset', name: 'Increase horizontal offset', callback: () => this.adjustOffset(5) });
+		this.addCommand({ id: 'decrease-offset', name: 'Decrease horizontal offset', callback: () => this.adjustOffset(-5) });
+		this.addCommand({ id: 'reset-settings', name: 'Reset to default settings', callback: () => this.resetSettings() });
+		this.addCommand({ id: 'toggle-tracking-mode', name: 'Toggle tracking mode (cursor/mouse)', callback: () => this.toggleTrackingMode() });
+
 		// Add settings tab
 		this.addSettingTab(new PrivacyScreenSettingTab(this.app, this));
 
@@ -57,6 +80,13 @@ export default class PrivacyScreenPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', () => this.trackCursor())
 		);
+
+		// Mouse tracking mode
+		this.registerDomEvent(document, 'mousemove', (e: MouseEvent) => {
+			if (this.isActive && this.settings.trackingMode === 'mouse') {
+				this.updateSpotlightPosition(e.clientX, e.clientY);
+			}
+		});
 	}
 
 	onunload() {
@@ -79,6 +109,31 @@ export default class PrivacyScreenPlugin extends Plugin {
 			this.createOverlay();
 		}
 		this.isActive = !this.isActive;
+		this.settings.wasActive = this.isActive;
+		this.saveSettings();
+	}
+
+	private adjustSetting(key: 'spotlightWidth' | 'spotlightHeight' | 'blurIntensity', delta: number, min: number, max: number) {
+		const newValue = Math.max(min, Math.min(max, this.settings[key] + delta));
+		this.settings[key] = newValue;
+		this.saveSettings();
+	}
+
+	private adjustOffset(delta: number) {
+		const maxOffset = Math.floor(this.settings.spotlightWidth / 2) - 5;
+		const newValue = Math.max(-maxOffset, Math.min(maxOffset, this.settings.horizontalOffset + delta));
+		this.settings.horizontalOffset = newValue;
+		this.saveSettings();
+	}
+
+	private async resetSettings() {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS);
+		await this.saveSettings();
+	}
+
+	private toggleTrackingMode() {
+		this.settings.trackingMode = this.settings.trackingMode === 'cursor' ? 'mouse' : 'cursor';
+		this.saveSettings();
 	}
 
 	private createOverlay() {
@@ -335,6 +390,18 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 						this.updatePreview();
 					}));
 		}
+
+		new Setting(containerEl)
+			.setName('Tracking mode')
+			.setDesc('Follow text cursor or mouse pointer')
+			.addDropdown(dropdown => dropdown
+				.addOption('cursor', 'Text cursor')
+				.addOption('mouse', 'Mouse pointer')
+				.setValue(this.plugin.settings.trackingMode)
+				.onChange(async (value: TrackingMode) => {
+					this.plugin.settings.trackingMode = value;
+					await this.plugin.saveSettings();
+				}));
 
 		new Setting(containerEl)
 			.setName('Preview cursor blink')
