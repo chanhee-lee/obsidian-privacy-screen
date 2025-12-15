@@ -4,7 +4,7 @@
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "Plugin that allows users to blur their obsidian workspace for privacy.",
-	"author": "",
-	"authorUrl": "",
+	"author": "chanhee-lee",
+	"authorUrl": "https://github.com/chanhee-lee",
 	"isDesktopOnly": true
 }
