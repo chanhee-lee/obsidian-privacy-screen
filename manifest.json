@@ -1,7 +1,7 @@
 {
 	"id": "privacy-screen",
 	"name": "Privacy Screen",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"minAppVersion": "1.5.0",
 	"description": "Blur your Obsidian workspace while keeping a spotlight around your cursor.",
 	"author": "chanhee-lee",
