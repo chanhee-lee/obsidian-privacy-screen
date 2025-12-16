@@ -1,6 +1,6 @@
 {
-	"name": "obsidian-privacy-screen",
-	"version": "1.0.0",
+	"name": "privacy-screen",
+	"version": "0.1.0",
 	"description": "Plugin that allows users to blur their obsidian workspace for privacy.",
 	"main": "main.js",
 	"scripts": {
