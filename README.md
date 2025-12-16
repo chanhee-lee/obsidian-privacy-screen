@@ -2,6 +2,8 @@
 
 An Obsidian plugin that blurs your workspace while keeping a spotlight around your cursor, providing privacy when working in public spaces.
 
+![Privacy Screen demo](assets/demo.gif)
+
 ## Features
 
 - **Blur overlay** - Blurs the entire Obsidian workspace except for a configurable spotlight area around the cursor
@@ -54,6 +56,10 @@ All commands can be bound to hotkeys in Settings > Hotkeys:
 - Increase/Decrease horizontal offset
 - Toggle tracking mode (cursor/mouse)
 - Reset to default settings
+
+## Acknowledgements 
+
+- Inspired by [Pwritevacy](https://github.com/Kuneosu/P-write-vacy)
 
 ## License
 
