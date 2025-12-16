@@ -1,9 +1,9 @@
 {
-	"id": "obsidian-privacy-screen",
+	"id": "privacy-screen",
 	"name": "Privacy Screen",
 	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Plugin that allows users to blur their obsidian workspace for privacy.",
+	"minAppVersion": "1.5.0",
+	"description": "Blur your Obsidian workspace while keeping a spotlight around your cursor.",
 	"author": "chanhee-lee",
 	"authorUrl": "https://github.com/chanhee-lee",
 	"isDesktopOnly": true
