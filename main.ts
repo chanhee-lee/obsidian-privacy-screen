@@ -46,7 +46,7 @@ export default class PrivacyScreenPlugin extends Plugin {
 		}
 
 		// Add ribbon icon to toggle privacy screen
-		this.addRibbonIcon('eye-off', 'Toggle Privacy Screen', () => {
+		this.addRibbonIcon('eye-off', 'Toggle privacy screen', () => {
 			this.toggle();
 		});
 
@@ -278,8 +278,6 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		new Setting(containerEl).setName('Privacy screen settings').setHeading();
-
 		// Shape preview - text stays centered, shape moves around it
 		const previewContainer = containerEl.createDiv({ cls: 'privacy-preview-container' });
 		this.previewShapeEl = previewContainer.createDiv({ cls: 'privacy-preview-shape' });
@@ -366,8 +364,8 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 			.setName('Spotlight shape')
 			.setDesc('Shape of the spotlight area')
 			.addDropdown(dropdown => dropdown
-				.addOption('circle', 'circle')
-				.addOption('square', 'square')
+				.addOption('circle', 'Circle')
+				.addOption('square', 'Square')
 				.setValue(this.plugin.settings.spotlightShape)
 				.onChange(async (value: SpotlightShape) => {
 					this.plugin.settings.spotlightShape = value;
@@ -394,8 +392,8 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 			.setName('Tracking mode')
 			.setDesc('Follow text cursor or mouse pointer')
 			.addDropdown(dropdown => dropdown
-				.addOption('cursor', 'text cursor')
-				.addOption('mouse', 'mouse pointer')
+				.addOption('cursor', 'Text cursor')
+				.addOption('mouse', 'Mouse pointer')
 				.setValue(this.plugin.settings.trackingMode)
 				.onChange(async (value: TrackingMode) => {
 					this.plugin.settings.trackingMode = value;
