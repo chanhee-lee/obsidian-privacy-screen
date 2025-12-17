@@ -52,8 +52,8 @@ export default class PrivacyScreenPlugin extends Plugin {
 
 		// Add command to toggle privacy screen
 		this.addCommand({
-			id: 'toggle-privacy-screen',
-			name: 'Toggle privacy screen',
+			id: 'toggle',
+			name: 'Toggle',
 			callback: () => {
 				this.toggle();
 			}
@@ -110,20 +110,20 @@ export default class PrivacyScreenPlugin extends Plugin {
 		}
 		this.isActive = !this.isActive;
 		this.settings.wasActive = this.isActive;
-		this.saveSettings();
+		void this.saveSettings();
 	}
 
 	private adjustSetting(key: 'spotlightWidth' | 'spotlightHeight' | 'blurIntensity', delta: number, min: number, max: number) {
 		const newValue = Math.max(min, Math.min(max, this.settings[key] + delta));
 		this.settings[key] = newValue;
-		this.saveSettings();
+		void this.saveSettings();
 	}
 
 	private adjustOffset(delta: number) {
 		const maxOffset = Math.floor(this.settings.spotlightWidth / 2) - 5;
 		const newValue = Math.max(-maxOffset, Math.min(maxOffset, this.settings.horizontalOffset + delta));
 		this.settings.horizontalOffset = newValue;
-		this.saveSettings();
+		void this.saveSettings();
 	}
 
 	private async resetSettings() {
@@ -133,7 +133,7 @@ export default class PrivacyScreenPlugin extends Plugin {
 
 	private toggleTrackingMode() {
 		this.settings.trackingMode = this.settings.trackingMode === 'cursor' ? 'mouse' : 'cursor';
-		this.saveSettings();
+		void this.saveSettings();
 	}
 
 	private createOverlay() {
@@ -190,7 +190,6 @@ export default class PrivacyScreenPlugin extends Plugin {
 		}
 
 		this.overlayEl.style.maskImage = maskImage;
-		this.overlayEl.style.webkitMaskImage = maskImage;
 	}
 
 	private createSquareMask(cx: number, cy: number, width: number, height: number, roundness: number, feather: number): string {
@@ -279,7 +278,7 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Privacy Screen Settings' });
+		new Setting(containerEl).setName('Privacy screen settings').setHeading();
 
 		// Shape preview - text stays centered, shape moves around it
 		const previewContainer = containerEl.createDiv({ cls: 'privacy-preview-container' });
@@ -367,8 +366,8 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 			.setName('Spotlight shape')
 			.setDesc('Shape of the spotlight area')
 			.addDropdown(dropdown => dropdown
-				.addOption('circle', 'Circle')
-				.addOption('square', 'Square')
+				.addOption('circle', 'circle')
+				.addOption('square', 'square')
 				.setValue(this.plugin.settings.spotlightShape)
 				.onChange(async (value: SpotlightShape) => {
 					this.plugin.settings.spotlightShape = value;
@@ -395,8 +394,8 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 			.setName('Tracking mode')
 			.setDesc('Follow text cursor or mouse pointer')
 			.addDropdown(dropdown => dropdown
-				.addOption('cursor', 'Text cursor')
-				.addOption('mouse', 'Mouse pointer')
+				.addOption('cursor', 'text cursor')
+				.addOption('mouse', 'mouse pointer')
 				.setValue(this.plugin.settings.trackingMode)
 				.onChange(async (value: TrackingMode) => {
 					this.plugin.settings.trackingMode = value;
@@ -424,21 +423,22 @@ class PrivacyScreenSettingTab extends PluginSettingTab {
 
 		const { spotlightWidth, spotlightHeight, horizontalOffset, spotlightShape, squareRoundness } = this.plugin.settings;
 
-		// Show actual 1:1 size - no scaling
-		// Shape clips if it exceeds preview container bounds
-		this.previewShapeEl.style.width = `${spotlightWidth}px`;
-		this.previewShapeEl.style.height = `${spotlightHeight}px`;
-		this.previewShapeEl.style.transform = `translateX(${horizontalOffset}px)`;
-
+		// Calculate border radius
+		let borderRadius: string;
 		if (spotlightShape === 'circle') {
-			this.previewShapeEl.style.borderRadius = '50%';
+			borderRadius = '50%';
 		} else {
 			const minDim = Math.min(spotlightWidth, spotlightHeight) / 2;
 			const roundness = (squareRoundness / 100) * minDim;
-			this.previewShapeEl.style.borderRadius = `${roundness}px`;
+			borderRadius = `${roundness}px`;
 		}
 
-		// Text stays constant size (actual Obsidian text size)
-		this.previewTextEl.style.transform = '';
+		// Use CSS custom properties instead of direct style manipulation
+		this.previewShapeEl.setCssProps({
+			'--preview-width': `${spotlightWidth}px`,
+			'--preview-height': `${spotlightHeight}px`,
+			'--preview-offset': `${horizontalOffset}px`,
+			'--preview-radius': borderRadius
+		});
 	}
 }

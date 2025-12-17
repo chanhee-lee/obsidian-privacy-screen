@@ -31,6 +31,10 @@
 	border: 2px solid var(--text-muted);
 	transition: all 0.15s ease;
 	position: absolute;
+	width: var(--preview-width, 200px);
+	height: var(--preview-height, 100px);
+	transform: translateX(var(--preview-offset, 0));
+	border-radius: var(--preview-radius, 50%);
 }
 
 .privacy-preview-text {
